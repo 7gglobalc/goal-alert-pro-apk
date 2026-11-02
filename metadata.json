@@ -1,0 +1,6 @@
+{
+  "name": "GoalAlert",
+  "description": "Live goal alerts for UEFA Champions League and the top 5 European leagues with loud stadium sound notifications, real-time match tracking, and goal event details.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
