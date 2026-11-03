@@ -159,3 +159,4 @@ class ExampleRobolectricTest {
     assertTrue("Favorited match should return true and trigger sound/alert", favResult)
   }
 }
+

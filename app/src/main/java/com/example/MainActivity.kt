@@ -27,13 +27,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.Text
@@ -80,8 +84,10 @@ import com.example.model.Match
 import com.example.service.FavoriteGoalNotificationService
 import com.example.service.LicenseManager
 import com.example.service.MatchSimulationEngine
+import com.example.data.UclScheduleRepository
 import com.example.ui.components.MatchTrackerPlaceholderData
 import com.example.ui.screens.PasscodeLockScreen
+import com.example.ui.screens.UclScheduleScreen
 import com.example.ui.components.GoalCelebrationDialog
 import com.example.ui.components.GoalEventCard
 import com.example.ui.components.LeagueFilterChips
@@ -135,6 +141,7 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
     val scope = rememberCoroutineScope()
     val licenseManager = remember { LicenseManager(context) }
     val favoriteGoalService = remember { FavoriteGoalNotificationService(context) }
+    val uclScheduleRepository = remember { UclScheduleRepository(context) }
     var isAppUnlocked by remember { mutableStateOf(licenseManager.isActivated()) }
 
     if (!isAppUnlocked) {
@@ -152,7 +159,11 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
     val isSimulationRunning by engine.isLiveSimulationRunning.collectAsStateWithLifecycle()
 
     var selectedLeague by remember { mutableStateOf(LeagueId.ALL) }
-    var selectedTabIndex by remember { mutableIntStateOf(0) } // 0: Live Matches, 1: Goal Feed, 2: Sound & Architecture
+    var selectedTabIndex by remember { mutableIntStateOf(0) } // 0: Match Tracker, 1: UCL Calendar, 2: Goal Feed, 3: Audio & Guide
+
+    BackHandler(enabled = selectedTabIndex != 0) {
+        selectedTabIndex = 0
+    }
 
     var selectedMatchForDetail by remember { mutableStateOf<Match?>(null) }
     var selectedTrackerMatch by remember { mutableStateOf<TrackerMatchItem?>(null) }
@@ -206,6 +217,7 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
             GoalAlertTopBar(
                 isLiveActive = isSimulationRunning,
                 onToggleLive = { engine.toggleSimulation() },
+                onOpenUclCalendar = { selectedTabIndex = 1 },
                 onOpenTestSheet = { isTestSheetOpen = true },
                 onQuickPlaySound = { engine.soundPlayer.playStadiumCheer() }
             )
@@ -247,17 +259,12 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
                 }
             }
 
-            // Primary Tabs: Matches vs Goal Feed vs Sound Setup
-            PrimaryTabRow(
+            // Primary Tabs: Matches vs UCL Calendar vs Goal Feed vs Sound Setup
+            ScrollableTabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = StadiumPitchDark,
                 contentColor = GoalNeonGreen,
-                indicator = {
-                    TabRowDefaults.PrimaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(selectedTabIndex),
-                        color = GoalNeonGreen
-                    )
-                }
+                edgePadding = 12.dp
             ) {
                 Tab(
                     selected = selectedTabIndex == 0,
@@ -276,21 +283,42 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
                     onClick = { selectedTabIndex = 1 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                Icons.Default.EmojiEvents,
+                                contentDescription = null,
+                                tint = if (selectedTabIndex == 1) TrophyGold else TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Goal Feed", fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Normal)
+                            Text(
+                                "UCL Calendar",
+                                color = if (selectedTabIndex == 1) TrophyGold else TextSecondary,
+                                fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.Normal
+                            )
                         }
                     },
-                    modifier = Modifier.testTag("tab_goal_feed")
+                    modifier = Modifier.testTag("tab_ucl_calendar")
                 )
                 Tab(
                     selected = selectedTabIndex == 2,
                     onClick = { selectedTabIndex = 2 },
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Goal Feed", fontWeight = if (selectedTabIndex == 2) FontWeight.Bold else FontWeight.Normal)
+                        }
+                    },
+                    modifier = Modifier.testTag("tab_goal_feed")
+                )
+                Tab(
+                    selected = selectedTabIndex == 3,
+                    onClick = { selectedTabIndex = 3 },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Audio & Guide", fontWeight = if (selectedTabIndex == 2) FontWeight.Bold else FontWeight.Normal)
+                            Text("Audio & Guide", fontWeight = if (selectedTabIndex == 3) FontWeight.Bold else FontWeight.Normal)
                         }
                     },
                     modifier = Modifier.testTag("tab_audio_guide")
@@ -298,7 +326,7 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
             }
 
             // League Filter Chips (for Goal Feed)
-            if (selectedTabIndex == 1) {
+            if (selectedTabIndex == 2) {
                 LeagueFilterChips(
                     selectedLeague = selectedLeague,
                     onSelectLeague = { selectedLeague = it }
@@ -413,6 +441,13 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
                     }
                 }
                 1 -> {
+                    // UEFA Champions League Match Schedule & Calendar
+                    UclScheduleScreen(
+                        repository = uclScheduleRepository,
+                        onPreviewSound = { engine.soundPlayer.playStadiumCheer() }
+                    )
+                }
+                2 -> {
                     // Goal Feed List
                     if (filteredGoals.isEmpty()) {
                         Box(
@@ -458,7 +493,7 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
                         }
                     }
                 }
-                2 -> {
+                3 -> {
                     // Audio & Technical Guide tab
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -551,6 +586,7 @@ fun GoalAlertApp(engine: MatchSimulationEngine) {
 fun GoalAlertTopBar(
     isLiveActive: Boolean,
     onToggleLive: () -> Unit,
+    onOpenUclCalendar: () -> Unit = {},
     onOpenTestSheet: () -> Unit,
     onQuickPlaySound: () -> Unit
 ) {
@@ -580,7 +616,7 @@ fun GoalAlertTopBar(
                         color = TextPrimary
                     )
                     Text(
-                        text = "TOP 5 EUROPEAN LEAGUES",
+                        text = "UEFA CHAMPIONS LEAGUE & TOP 5",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = TrophyGold,
@@ -603,13 +639,24 @@ fun GoalAlertTopBar(
         },
         actions = {
             IconButton(
+                onClick = onOpenUclCalendar,
+                modifier = Modifier.testTag("topbar_ucl_calendar_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.EmojiEvents,
+                    contentDescription = "UEFA Champions League Calendar",
+                    tint = TrophyGold
+                )
+            }
+
+            IconButton(
                 onClick = onQuickPlaySound,
                 modifier = Modifier.testTag("topbar_sound_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.VolumeUp,
                     contentDescription = "Stadium Cheer Sound",
-                    tint = TrophyGold
+                    tint = TextPrimary
                 )
             }
 
